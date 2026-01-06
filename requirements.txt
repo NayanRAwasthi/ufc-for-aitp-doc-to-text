@@ -1,2 +1,2 @@
 streamlit
-markitdown[all]
+markitdown>=0.0.1
