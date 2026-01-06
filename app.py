@@ -3,15 +3,11 @@ import os
 from markitdown import MarkItDown
 from io import BytesIO
 
-# Initialize MarkItDown engine
-# Note: MarkItDown handles the internal logic for MS Office and PDF
+# Initialize the conversion engine
 md = MarkItDown()
 
-# Page configuration
 st.set_page_config(page_title="Universal Document Reader", page_icon="📄")
-
 st.title("📄 Universal Document Reader")
-st.markdown("Convert Office docs, PDFs, and HTML into clean Markdown or Plain Text.")
 
 # [2] Upload Area
 uploaded_files = st.file_uploader(
@@ -27,53 +23,40 @@ if uploaded_files:
         
         with st.expander(f"📄 Processing: {uploaded_file.name}", expanded=True):
             try:
-                # [3] Resilience: Use a temporary byte stream to avoid disk writes
+                # Process file
                 file_bytes = uploaded_file.getvalue()
+                original_size_mb = len(file_bytes) / (1024 * 1024)
                 
-                # MarkItDown requires a file path or a stream-like object
-                # We pass the file name to help it identify the format
-                result = md.convert_stream(
-                    BytesIO(file_bytes), 
-                    extension=file_extension
-                )
-                
+                result = md.convert_stream(BytesIO(file_bytes), extension=file_extension)
                 converted_text = result.text_content
+                converted_size_mb = len(converted_text.encode('utf-8')) / (1024 * 1024)
 
-                # [2] Instant Preview
-                st.text_area(
-                    label="Preview", 
-                    value=converted_text, 
-                    height=300, 
-                    key=f"text_{uploaded_file.name}"
-                )
+                # Tabs for Content and Comparison
+                tab1, tab2 = st.tabs(["📝 Converted Content", "📊 File Size Comparison"])
 
-                # [2] Download Options
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.download_button(
-                        label="Download as Markdown (.md)",
-                        data=converted_text,
-                        file_name=f"{base_name}_converted.md",
-                        mime="text/markdown",
-                        key=f"md_{uploaded_file.name}"
-                    )
-                
-                with col2:
-                    st.download_button(
-                        label="Download as Text (.txt)",
-                        data=converted_text,
-                        file_name=f"{base_name}_converted.txt",
-                        mime="text/plain",
-                        key=f"txt_{uploaded_file.name}"
-                    )
+                with tab1:
+                    st.text_area("Preview", value=converted_text, height=300, key=f"prev_{uploaded_file.name}")
+                    
+                    # Download buttons
+                    c1, c2 = st.columns(2)
+                    c1.download_button("Download .md", converted_text, f"{base_name}.md", "text/markdown")
+                    c2.download_button("Download .txt", converted_text, f"{base_name}.txt", "text/plain")
+
+                with tab2:
+                    # [NEW] File Size Comparison Logic
+                    st.subheader("Efficiency Metrics")
+                    
+                    # Create Table
+                    data = {
+                        "File State": ["Original File", "Converted Text"],
+                        "Size (MB)": [f"{original_size_mb:.2f} MB", f"{converted_size_mb:.2f} MB"]
+                    }
+                    st.table(data)
+
+                    # Calculate Percentage Reduction
+                    if original_size_mb > 0:
+                        reduction = ((original_size_mb - converted_size_mb) / original_size_mb) * 100
+                        st.success(f"💡 **Text version is {reduction:.1f}% smaller.**")
 
             except Exception as e:
-                # [3] Resilience: Error Handling
                 st.error(f"⚠️ Could not read {uploaded_file.name}. Please check the format.")
-                # Optional: Uncomment the next line for debugging
-                # st.info(f"Error details: {e}")
-
-# Footer
-st.divider()
-st.caption("Powered by Microsoft MarkItDown & Streamlit")
